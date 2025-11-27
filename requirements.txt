@@ -1,10 +1,6 @@
 streamlit
 pandas
-plotly.express
-WordCloud
-matplotlib.pyplot
-io
-base64
-random
+plotly
+wordcloud
+matplotlib
 numpy
-
