@@ -350,5 +350,4 @@ def main():
     st.sidebar.info("Desenvolvido para análise epidemiológica.")
 
 if __name__ == "__main__":
-    main()    main()
-
+    main()
