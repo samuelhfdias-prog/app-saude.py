@@ -44,7 +44,6 @@ def remover_acentos(texto):
 
 @st.cache_data
 def gerar_dados_simulados(num_registros=1500):
-    # Inserindo np.nan propositalmente para testar a correção
     sexos = ['Masculino', 'Feminino', 'Outro', np.nan]
     cidades = ['São Paulo', 'Pompeia', 'Belo Horizonte', 'Porto Alegre', 'Curitiba', 'Salvador']
     bairros = ['Centro', 'Jardins', 'Barra', 'Copacabana', 'Savassi', 'Industrial', 'Vila Nova']
@@ -83,21 +82,24 @@ def gerar_dados_simulados(num_registros=1500):
 @st.cache_data
 def preparar_base(df_input):
     df = df_input.copy()
-    cols_texto = ['sexo', 'cidade', 'bairro', 'queixa', 'diagnostico', 'tipo', 'servico']
     
-    # CORREÇÃO CRÍTICA: Tratamento robusto de nulos
+    # --- CORREÇÃO DO ERRO DE DATA ---
+    # Converte colunas de data explicitamente para datetime, pois o CSV as carrega como string
+    cols_data = ['dataEntrada', 'dataSaida', 'dataNascimento']
+    for col in cols_data:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+
+    # Tratamento de texto e nulos (Mantendo lógica anterior)
+    cols_texto = ['sexo', 'cidade', 'bairro', 'queixa', 'diagnostico', 'tipo', 'servico']
     for col in cols_texto:
         if col in df.columns:
-            # 1. Preenche NaN/None nativos do Pandas/Numpy
             df[col] = df[col].fillna('Não Informado')
-            # 2. Converte para string
             df[col] = df[col].astype(str)
-            # 3. Substitui strings que representam nulos ('nan', 'None', string vazia)
-            # Usamos regex=False para substituição exata e case=False para pegar 'NAN', 'NaN', 'nan'
             df[col] = df[col].replace(to_replace=['nan', 'NaN', 'None', '', 'none', 'null'], value='Não Informado', regex=False)
 
+    # Cálculo de Idade
     if 'dataNascimento' in df.columns:
-        df['dataNascimento'] = pd.to_datetime(df['dataNascimento'], errors='coerce')
         today = datetime(2024, 1, 1)
         df['idade'] = ((today - df['dataNascimento']).dt.days / 365.25).fillna(0).astype(int)
         
@@ -130,7 +132,6 @@ def layout_kpis(df):
 
     top_diag = "Inconclusivo"
     if not df.empty and 'diagnostico' in df.columns:
-        # A moda agora incluirá 'Não Informado' se for o mais frequente
         moda_diag = df['diagnostico'].mode()
         if not moda_diag.empty:
             top_diag = moda_diag[0]
@@ -139,7 +140,6 @@ def layout_kpis(df):
     k1.metric("🏥 Total Atendimentos", f"{total_pacientes:,}".replace(",", "."), delta_color="off")
     k2.metric("🎂 Idade Média", f"{media_idade:.1f} anos")
     k3.metric("📍 Cidade Principal", top_cidade)
-    # Exibe em vermelho se for Não Informado/Definido para alertar
     color_diag = "inverse" if top_diag in ['Não Informado', 'Não Definido'] else "normal"
     k4.metric("🦠 Top Diagnóstico", top_diag, delta_color=color_diag)
 
@@ -168,7 +168,6 @@ def graficos_demograficos(df):
         if df.empty:
             st.info("Sem dados.")
         else:
-            # Conta explicitamente todas as categorias, incluindo 'Não Informado'
             df_sexo = df['sexo'].value_counts(dropna=False).reset_index()
             df_sexo.columns = ['Sexo', 'Total']
             fig = px.pie(df_sexo, values='Total', names='Sexo', hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
@@ -194,6 +193,7 @@ def grafico_linha_tempo(df):
         st.info("Sem dados temporais.")
         return
     
+    # Aqui o .dt.date funcionará porque convertemos em preparar_base
     df_tempo = df.groupby(df['dataEntrada'].dt.date).size().reset_index(name='Atendimentos')
     df_tempo.columns = ['Data', 'Atendimentos']
     
@@ -212,13 +212,9 @@ def nuvem_termos_otimizada(df):
         st.warning("Sem dados.")
         return
 
-    # Concatena diagnósticos e queixas
     text_raw = ' '.join(df['diagnostico'].astype(str) + ' ' + df['queixa'].astype(str))
     text_normalized = remover_acentos(text_raw.lower())
     
-    # CORREÇÃO CRÍTICA PARA WORDCLOUD: 
-    # Une "nao informado" com underline para virar um único token "nao_informado"
-    # Assim o WordCloud não separa em "nao" (que some) e "informado"
     text_processed = text_normalized.replace('nao informado', 'NAO_INFORMADO')
     text_processed = text_processed.replace('nao definido', 'NAO_DEFINIDO')
 
@@ -229,8 +225,8 @@ def nuvem_termos_otimizada(df):
         background_color='#1e2130',
         colormap='GnBu',
         stopwords=stopwords,
-        regexp=r"\w[\w']+", # Aceita palavras com underline e apóstrofos
-        collocations=False # Desativa collocations automáticas para respeitar nossa tokenização manual
+        regexp=r"\w[\w']+", 
+        collocations=False
     ).generate(text_processed)
 
     fig, ax = plt.subplots(figsize=(10, 4))
@@ -251,7 +247,6 @@ def main():
         sel_cidade = st.multiselect("Município:", sorted(df['cidade'].unique()), default=[])
     
     with st.sidebar.expander("👤 Perfil do Paciente", expanded=False):
-        # O dropna=False no unique garante que se algo escapou, apareça aqui também
         sel_sexo = st.multiselect("Sexo:", sorted(df['sexo'].astype(str).unique()))
         sel_faixa = st.multiselect("Faixa Etária:", sorted(df['faixa_etaria'].astype(str).unique()))
 
@@ -277,7 +272,6 @@ def main():
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("### 🩺 Diagnósticos Mais Frequentes")
-            # dropna=False garante contagem de nulos se a substituição falhasse, mas agora tudo é string
             counts = df_filtrado['diagnostico'].value_counts().head(10).reset_index()
             counts.columns = ['Diagnóstico', 'Qtd']
             plot_barra_horizontal(counts, 'Qtd', 'Diagnóstico', '', px.colors.sequential.Teal)
