@@ -10,282 +10,365 @@ import unicodedata
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="Analytics Saúde | Visão Estratégica",
+    page_title="Dashboard de Saúde | Análise Clínica",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- TEMA E ESTILO (UI PRO) ---
+# --- CAMADA DE ESTILO (CSS) ---
 def aplicar_estilo_css():
     st.markdown("""
         <style>
-        /* Importação de Fonte Google (Roboto) para visual limpo */
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
-
-        html, body, [class*="css"] {
-            font-family: 'Roboto', sans-serif;
-        }
-
-        /* Fundo Geral e Barra Lateral */
+        /* Ajuste global para tema escuro e contraste */
         .stApp {
-            background-color: #0F1116; /* Preto Profundo */
-        }
-        section[data-testid="stSidebar"] {
-            background-color: #161B22; /* Cinza Escuro Azulado */
-            border-right: 1px solid #30363D;
-        }
-
-        /* Estilização dos Cards (KPIs) - Efeito Glassmorphism Leve */
-        div[data-testid="stMetric"] {
-            background-color: #1F242D;
-            border: 1px solid #30363D;
-            padding: 20px;
-            border-radius: 12px;
-            border-left: 5px solid #2E9CCA; /* Acento Azul Saúde */
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-        }
-        div[data-testid="stMetric"]:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(46, 156, 202, 0.2);
-            border-color: #2E9CCA;
-        }
-        div[data-testid="stMetricLabel"] {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #8B949E;
-        }
-        div[data-testid="stMetricValue"] {
-            font-size: 2rem;
-            color: #F0F6FC;
-            font-weight: 700;
-        }
-
-        /* Títulos e Headers */
-        h1, h2, h3 {
-            color: #E6EDF3 !important;
+            background-color: #0e1117;
+            color: #fafafa;
         }
         
-        /* Ajuste de Abas */
+        /* Estilização dos Cards (KPIs) */
+        div[data-testid="stMetric"] {
+            background-color: #262730;
+            border: 1px solid #41424C;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        div[data-testid="stMetric"]:hover {
+            transform: scale(1.02);
+            border-color: #ff4b4b;
+        }
+        div[data-testid="stMetricLabel"] {
+            font-size: 0.9rem;
+            color: #a3a8b8;
+            font-weight: 500;
+        }
+        div[data-testid="stMetricValue"] {
+            font-size: 1.6rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+        
+        /* Responsividade para Telas Pequenas */
+        @media (max-width: 768px) {
+            div[data-testid="stMetric"] {
+                margin-bottom: 10px;
+            }
+            .block-container {
+                padding-top: 2rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+        }
+        
+        /* Ajuste de Tabs */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-            background-color: transparent;
+            gap: 10px;
         }
         .stTabs [data-baseweb="tab"] {
-            height: 45px;
-            background-color: #161B22;
-            border: 1px solid #30363D;
-            border-radius: 6px;
-            color: #8B949E;
-            padding: 0 20px;
+            height: 50px;
+            white-space: pre-wrap;
+            background-color: #262730;
+            border-radius: 5px;
+            color: #fff;
         }
         .stTabs [aria-selected="true"] {
-            background-color: #2E9CCA !important;
-            color: white !important;
-            border-color: #2E9CCA !important;
-        }
-
-        /* Customização da Barra de Rolagem */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #30363D;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0F1116;
+            background-color: #ff4b4b !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
 # --- FUNÇÕES UTILITÁRIAS ---
+
 def remover_acentos(texto):
-    if not isinstance(texto, str): return str(texto)
+    """Normaliza strings removendo acentos e caracteres especiais."""
+    if not isinstance(texto, str):
+        return str(texto)
     nfkd = unicodedata.normalize('NFKD', texto)
     return u"".join([c for c in nfkd if not unicodedata.combining(c)])
 
-# --- GERAÇÃO DE DADOS ---
-@st.cache_data
-def carregar_dados_inteligentes():
-    """Gera dados ou carrega, com tratamento robusto."""
-    try:
-        df = pd.read_csv('saude_processada.csv')
-    except FileNotFoundError:
-        # Simulação Rápida
-        num = 1500
-        sexos = ['Masculino', 'Feminino']
-        cidades = ['São Paulo', 'Pompeia', 'Marília', 'Bauru', 'Curitiba']
-        queixas = ['Dor de Cabeça', 'Febre Alta', 'Dor Lombar', 'Ansiedade', 'Tosse Seca', np.nan]
-        diagnosticos = ['Enxaqueca', 'Viral', 'Lombalgia', 'Crise Ansiosa', 'Bronquite', 'Indefinido']
-        
-        df = pd.DataFrame({
-            'sexo': [random.choice(sexos) for _ in range(num)],
-            'cidade': [random.choice(cidades) for _ in range(num)],
-            'queixa': [random.choice(queixas) for _ in range(num)],
-            'diagnostico': [random.choice(diagnosticos) for _ in range(num)],
-            'idade': [random.randint(1, 95) for _ in range(num)],
-            'data_atendimento': [datetime.now() - timedelta(days=random.randint(0, 365)) for _ in range(num)]
-        })
-        
-        # Categorização de Idade
-        bins = [0, 12, 19, 60, 120]
-        labels = ['Criança', 'Adolescente', 'Adulto', 'Idoso']
-        df['faixa_etaria'] = pd.cut(df['idade'], bins=bins, labels=labels)
+# --- 1. CARREGAMENTO E PREPARAÇÃO DE DADOS ---
 
-    # Tratamento de Strings para UX (Remover nan feio)
-    cols_str = ['sexo', 'cidade', 'queixa', 'diagnostico']
-    for col in cols_str:
-        if col in df.columns:
-            df[col] = df[col].fillna('Não Informado').astype(str)
-            
+@st.cache_data
+def gerar_dados_simulados(num_registros=1500):
+    """Gera dados simulados caso o CSV não exista."""
+    sexos = ['Masculino', 'Feminino', 'Outro', np.nan] # Adicionado NaN para teste
+    cidades = ['São Paulo', 'Pompeia', 'Belo Horizonte', 'Porto Alegre', 'Curitiba', 'Salvador']
+    bairros = ['Centro', 'Jardins', 'Barra', 'Copacabana', 'Savassi', 'Industrial', 'Vila Nova']
+    tipos_atendimento = ['Consulta', 'Emergência', 'Exame', 'Internação', 'Retorno']
+    servicos = ['Clínica Geral', 'Pediatria', 'Cardiologia', 'Dermatologia', 'Ortopedia', 'Ginecologia']
+
+    queixas_comuns = [
+        'Dor de cabeça', 'Dor nas costas', 'Fadiga', 'Tosse', 'Febre', 
+        'Náusea', 'Dores musculares', 'Ansiedade', 'Dor no peito', np.nan
+    ]
+    diagnosticos_comuns = [
+        'Gripe', 'Infecção Urinária', 'Hipertensão', 'Diabetes Tipo 2', 
+        'Gastrite', 'Enxaqueca', 'Asma', 'Dermatite', 'Ansiedade', 
+        'Depressão', 'Não Definido', np.nan
+    ]
+
+    base_date = datetime(2023, 1, 1)
+    
+    data = {
+        '_id': [f'rec_{i:06d}' for i in range(num_registros)],
+        'sexo': [random.choice(sexos) for _ in range(num_registros)],
+        'cidade': [random.choice(cidades) for _ in range(num_registros)],
+        'bairro': [random.choice(bairros) for _ in range(num_registros)],
+        'dataNascimento': [(datetime.now() - timedelta(days=random.randint(365*1, 365*90))).strftime('%Y-%m-%d') for _ in range(num_registros)],
+        'tipo': [random.choice(tipos_atendimento) for _ in range(num_registros)],
+        'servico': [random.choice(servicos) for _ in range(num_registros)],
+        'queixa': [random.choice(queixas_comuns) for _ in range(num_registros)],
+        'diagnostico': [random.choice(diagnosticos_comuns) for _ in range(num_registros)],
+        'dataEntrada': [(base_date + timedelta(days=random.randint(0, 364), hours=random.randint(0, 23))) for _ in range(num_registros)]
+    }
+    
+    df = pd.DataFrame(data)
+    df['dataSaida'] = df['dataEntrada'].apply(lambda x: x + timedelta(hours=random.randint(1, 48)))
     return df
 
-# --- COMPONENTES VISUAIS APRIMORADOS ---
+@st.cache_data
+def preparar_base(df_input):
+    """
+    Realiza o tratamento de nulos, cálculo de idade e padronização.
+    """
+    df = df_input.copy()
 
-def plot_config_pro(fig):
-    """Aplica um tema limpo e profissional a qualquer gráfico Plotly."""
+    # 1. Tratamento de Nulos (Crítico para UX)
+    cols_texto = ['sexo', 'cidade', 'bairro', 'queixa', 'diagnostico', 'tipo', 'servico']
+    for col in cols_texto:
+        if col in df.columns:
+            # Preenche NaN com 'Não Informado' e converte para string
+            df[col] = df[col].fillna('Não Informado').astype(str)
+            # Padroniza variações como 'não definido' para 'Não Informado' se desejar unificar
+            df[col] = df[col].replace(['nan', 'NaN', 'None', ''], 'Não Informado')
+
+    # 2. Conversão de Datas e Idade
+    if 'dataNascimento' in df.columns:
+        df['dataNascimento'] = pd.to_datetime(df['dataNascimento'], errors='coerce')
+        today = datetime(2024, 1, 1)
+        df['idade'] = ((today - df['dataNascimento']).dt.days / 365.25).fillna(0).astype(int)
+        
+        bins = [0, 12, 18, 60, np.inf]
+        labels = ['Criança', 'Adolescente', 'Adulto', 'Idoso']
+        df['faixa_etaria'] = pd.cut(df['idade'], bins=bins, labels=labels, right=False, include_lowest=True)
+        df['faixa_etaria'] = df['faixa_etaria'].astype(str).replace('nan', 'Não Informado')
+
+    return df
+
+@st.cache_data
+def carregar_dados():
+    """Tenta carregar CSV ou gera simulado, depois pré-processa."""
+    try:
+        df_raw = pd.read_csv('saude_processada.csv')
+    except FileNotFoundError:
+        df_raw = gerar_dados_simulados()
+    
+    return preparar_base(df_raw)
+
+# --- 2. COMPONENTES VISUAIS ---
+
+def criar_cards_resumo(df):
+    """Gera os KPIs principais com tratamento de erros."""
+    st.subheader("📌 Indicadores Chave")
+    
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    
+    # Cálculos seguros
+    total_pacientes = len(df)
+    
+    media_idade = df['idade'].mean() if not df.empty else 0
+    
+    top_cidade = "Sem Dados"
+    if not df.empty:
+        moda_cidade = df['cidade'].mode()
+        if not moda_cidade.empty:
+            top_cidade = moda_cidade[0]
+
+    top_diag = "Sem Dados"
+    if not df.empty:
+        # Filtra 'Não Informado' para pegar o diagnóstico real mais comum
+        diag_validos = df[~df['diagnostico'].isin(['Não Informado', 'Não Definido'])]
+        if not diag_validos.empty:
+            top_diag = diag_validos['diagnostico'].mode()[0]
+        else:
+            top_diag = "Inconclusivo"
+
+    with kpi1: st.metric("Total de Atendimentos", f"{total_pacientes:,}".replace(",", "."))
+    with kpi2: st.metric("Média de Idade", f"{media_idade:.1f} anos")
+    with kpi3: st.metric("Cidade + Frequente", top_cidade)
+    with kpi4: st.metric("Principal Diagnóstico", top_diag, help="Exclui 'Não Informado'")
+
+def _gerar_grafico_barras(df, coluna, titulo, cor_escala):
+    """Função genérica reutilizável para gráficos de barra."""
+    if df.empty:
+        st.info(f"Sem dados para {titulo}.")
+        return
+
+    # Contagem e ordenação
+    counts = df[coluna].value_counts().reset_index()
+    counts.columns = [coluna, 'Frequência']
+    counts = counts.sort_values(by='Frequência', ascending=False).head(15) # Top 15
+    
+    # Destacar "Não Informado" visualmente?
+    # Aqui optamos por mantê-lo mas ordenado. O Plotly lida bem com cores.
+
+    fig = px.bar(
+        counts,
+        x='Frequência',
+        y=coluna,
+        orientation='h',
+        text='Frequência',
+        color='Frequência',
+        color_continuous_scale=cor_escala,
+        title=titulo
+    )
+    
     fig.update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#8B949E', family="Roboto"),
-        title_font=dict(size=18, color='#E6EDF3', family="Roboto"),
-        margin=dict(l=20, r=20, t=50, b=20),
-        xaxis=dict(showgrid=False, color='#8B949E'),
-        yaxis=dict(showgrid=True, gridcolor='#30363D', color='#8B949E'),
-        hovermode="y unified"
+        font=dict(color='#fafafa'),
+        yaxis=dict(autorange="reversed", title=""), # Maior no topo
+        xaxis=dict(title="Número de Casos"),
+        margin=dict(l=10, r=20, t=40, b=10),
+        height=400
     )
-    return fig
-
-def card_kpi(col, titulo, valor, subtitulo=None, cor_borda="#2E9CCA"):
-    """Renderiza um card KPI personalizado se necessário (ou usa o nativo estilizado)."""
-    with col:
-        st.metric(label=titulo, value=valor, delta=subtitulo)
-
-def grafico_barras_horizontal(df, col_x, titulo, cor):
-    if df.empty: return
-    
-    counts = df[col_x].value_counts().head(10).sort_values(ascending=True)
-    
-    fig = px.bar(
-        x=counts.values,
-        y=counts.index,
-        orientation='h',
-        text=counts.values,
-        title=titulo,
-        color_discrete_sequence=[cor]
-    )
-    
-    fig.update_traces(textposition='outside', marker_line_width=0, opacity=0.9)
-    fig = plot_config_pro(fig)
+    fig.update_traces(textposition='outside')
     st.plotly_chart(fig, use_container_width=True)
 
-# --- APP PRINCIPAL ---
+def grafico_top_diagnosticos(df):
+    _gerar_grafico_barras(df, 'diagnostico', 'Top 15 Diagnósticos', px.colors.sequential.Tealgrn)
+
+def grafico_top_queixas(df):
+    _gerar_grafico_barras(df, 'queixa', 'Top 15 Queixas Principais', px.colors.sequential.Oranges)
+
+def nuvem_termos(df):
+    """Gera nuvem de palavras com limpeza avançada."""
+    st.markdown("### ☁️ Nuvem de Termos Relevantes")
+    
+    if df.empty:
+        st.warning("Sem dados para gerar a nuvem.")
+        return
+
+    # 1. Concatenação
+    text_diagnosticos = ' '.join(df['diagnostico'].tolist())
+    text_queixas = ' '.join(df['queixa'].tolist())
+    full_text = text_diagnosticos + ' ' + text_queixas
+
+    # 2. Limpeza Prévia
+    full_text = remover_acentos(full_text.lower())
+
+    # 3. Stopwords Customizadas (incluindo variações de nulos)
+    stopwords = set([
+        'nao informado', 'nao definido', 'nan', 'null', 'paciente', 'dor', 'de', 'da', 'do', 'em', 'para', 
+        'com', 'que', 'e', 'ou', 'a', 'o', 'as', 'os', 'um', 'uma', 'uns', 'umas', 'nos', 'nas', 
+        'cronica', 'aguda', 'leve', 'grave', 'sintomas', 'geral', 'tipo'
+    ])
+
+    if not full_text.strip():
+        st.info("Texto insuficiente após limpeza.")
+        return
+
+    with st.spinner('Gerando nuvem de palavras...'):
+        wordcloud = WordCloud(
+            width=800, height=400,
+            background_color='#0e1117', # Fundo escuro para combinar com tema
+            mode="RGBA",
+            colormap='cool', # Cores vibrantes para fundo escuro
+            min_font_size=12,
+            stopwords=stopwords,
+            collocations=False, # Evita duplicar palavras compostas simples
+            regexp=r"\w[\w']+"
+        ).generate(full_text)
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        # Fundo transparente no Matplotlib
+        fig.patch.set_alpha(0) 
+        ax.imshow(wordcloud, interpolation='bilinear')
+        ax.axis('off')
+        st.pyplot(fig)
+
+# --- 3. EXECUÇÃO PRINCIPAL ---
 
 def main():
     aplicar_estilo_css()
-    df = carregar_dados_inteligentes()
+    
+    # Header
+    col_img, col_txt = st.columns([0.5, 4.5])
+    with col_txt:
+        st.title("Monitoramento de Saúde Pública")
+        st.markdown("Análise interativa de diagnósticos, queixas e perfil demográfico.")
+    
+    # Carregamento
+    df = carregar_dados()
 
-    # --- SIDEBAR (Navegação e Filtros) ---
-    with st.sidebar:
-        st.title("🏥 HealthData")
-        st.caption("Sistema de Monitoramento Clínico v2.0")
-        st.markdown("---")
-        
-        st.header("🎛️ Filtros Ativos")
-        
-        # Filtros encadeados (UX: Filtros dinâmicos)
-        cidades = st.multiselect("📍 Localidade", sorted(df['cidade'].unique()))
-        
-        # Filtra opções subsequentes baseado na cidade
-        df_temp = df[df['cidade'].isin(cidades)] if cidades else df
-        diagnosticos = st.multiselect("🩺 Diagnóstico", sorted(df_temp['diagnostico'].unique()))
-        
-        # Botão de Reset (UX Importante)
-        if st.button("Limpar Filtros", type="primary"):
-            st.rerun()
+    # --- Sidebar (Filtros Eficientes) ---
+    st.sidebar.header("🔎 Filtros Globais")
+    
+    # Filtro Cidade (Atendendo à solicitação de Pompeia)
+    cidades_disp = sorted(df['cidade'].unique().tolist())
+    sel_cidade = st.sidebar.multiselect("Município:", cidades_disp, default=[]) # Default vazio = todos
+    
+    # Filtro Sexo
+    sexos_disp = sorted(df['sexo'].unique().tolist())
+    sel_sexo = st.sidebar.multiselect("Sexo Biológico:", sexos_disp)
 
-    # Aplicação dos Filtros
+    # Filtro Faixa Etária
+    faixas_disp = sorted(df['faixa_etaria'].unique().tolist())
+    sel_faixa = st.sidebar.multiselect("Faixa Etária:", faixas_disp)
+
+    # Aplicação dos Filtros (Lógica)
     df_filtrado = df.copy()
-    if cidades: df_filtrado = df_filtrado[df_filtrado['cidade'].isin(cidades)]
-    if diagnosticos: df_filtrado = df_filtrado[df_filtrado['diagnostico'].isin(diagnosticos)]
-
-    # --- CONTEÚDO PRINCIPAL ---
     
-    # 1. Cabeçalho com Contexto
-    col_header, col_time = st.columns([3, 1])
-    with col_header:
-        st.title("Visão Geral da Unidade")
-        st.markdown(f"**{len(df_filtrado)}** registros analisados em tempo real.")
-    with col_time:
-        st.caption(f"Atualizado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    if sel_cidade:
+        df_filtrado = df_filtrado[df_filtrado['cidade'].isin(sel_cidade)]
+    if sel_sexo:
+        df_filtrado = df_filtrado[df_filtrado['sexo'].isin(sel_sexo)]
+    if sel_faixa:
+        df_filtrado = df_filtrado[df_filtrado['faixa_etaria'].isin(sel_faixa)]
 
-    # 2. KPIs (Cards)
-    st.markdown("###") # Espaçamento
-    k1, k2, k3, k4 = st.columns(4)
+    # Feedback de filtros vazios
+    if df_filtrado.empty:
+        st.warning("⚠️ Nenhum registro encontrado para os filtros selecionados.")
+        return
+
+    # --- Renderização do Conteúdo ---
     
-    # Lógica de KPI
-    total = len(df_filtrado)
-    idade_media = df_filtrado['idade'].mean() if not df_filtrado.empty else 0
-    top_queixa = df_filtrado['queixa'].mode()[0] if not df_filtrado.empty else "N/A"
+    # 1. Cards (Indicadores)
+    criar_cards_resumo(df_filtrado)
     
-    # Variação simulada (UX: Mostra tendência)
-    var_atend = random.choice(["+5%", "-2%", "+12%"]) 
+    st.divider()
 
-    card_kpi(k1, "Volume Total", f"{total}", var_atend)
-    card_kpi(k2, "Idade Média", f"{idade_media:.0f} anos")
-    card_kpi(k3, "Queixa Principal", top_queixa)
-    card_kpi(k4, "Satisfação (NPS)", "78", "+2 pts")
+    # 2. Tabs para Organização
+    tab1, tab2, tab3 = st.tabs(["📊 Análise Gráfica", "☁️ Padrões Textuais", "📂 Dados Detalhados"])
 
-    st.markdown("---")
+    with tab1:
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            grafico_top_diagnosticos(df_filtrado)
+        with col_g2:
+            grafico_top_queixas(df_filtrado)
 
-    # 3. Análise Visual (Tabs)
-    tab_graf, tab_text, tab_raw = st.tabs(["📊 Dashboards", "☁️ Análise Semântica", "📂 Dados Brutos"])
+    with tab2:
+        nuvem_termos(df_filtrado)
 
-    with tab_graf:
-        row1_1, row1_2 = st.columns(2)
-        with row1_1:
-            grafico_barras_horizontal(df_filtrado, 'diagnostico', 'Top Diagnósticos', '#2E9CCA') # Azul
-        with row1_2:
-            grafico_barras_horizontal(df_filtrado, 'queixa', 'Principais Queixas', '#E88D67') # Laranja suave
-        
-        # Gráfico de Dispersão/Linha (Exemplo de evolução)
-        if 'data_atendimento' in df_filtrado.columns:
-            st.markdown("###")
-            daily_counts = df_filtrado.groupby('data_atendimento').size().reset_index(name='counts')
-            fig_line = px.area(daily_counts, x='data_atendimento', y='counts', title="Evolução de Atendimentos (Timeline)")
-            fig_line.update_traces(line_color='#2E9CCA', fillcolor='rgba(46, 156, 202, 0.2)')
-            st.plotly_chart(plot_config_pro(fig_line), use_container_width=True)
-
-    with tab_text:
-        col_wc, col_desc = st.columns([2, 1])
-        with col_wc:
-            # Wordcloud simplificada para o exemplo
-            text = " ".join(df_filtrado['queixa'].astype(str))
-            if text:
-                wc = WordCloud(width=800, height=400, background_color='#0F1116', colormap='ocean').generate(text)
-                fig_wc, ax = plt.subplots()
-                ax.imshow(wc, interpolation='bilinear')
-                ax.axis('off')
-                fig_wc.patch.set_alpha(0) # Fundo transparente
-                st.pyplot(fig_wc)
-        with col_desc:
-            st.info("💡 **Insight:** A nuvem de palavras destaca a predominância de sintomas respiratórios nesta amostra, sugerindo sazonalidade.")
-
-    with tab_raw:
-        st.markdown("### Exportação e Auditoria")
+    with tab3:
+        st.markdown(f"### Base de Dados Filtrada ({len(df_filtrado)} registros)")
         st.dataframe(
             df_filtrado,
             use_container_width=True,
             column_config={
-                "idade": st.column_config.ProgressColumn("Idade Visual", format="%d", min_value=0, max_value=100),
-                "data_atendimento": st.column_config.DateColumn("Data", format="DD/MM/YYYY")
+                "dataNascimento": st.column_config.DateColumn("Data Nasc."),
+                "idade": st.column_config.NumberColumn("Idade", format="%d anos"),
             },
-            height=400
+            hide_index=True
         )
+
+    # Footer
+    st.sidebar.markdown("---")
+    st.sidebar.caption("© 2025 Orvate Tech")
 
 if __name__ == "__main__":
     main()
