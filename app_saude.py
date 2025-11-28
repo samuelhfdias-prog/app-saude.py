@@ -135,6 +135,7 @@ def preparar_base(df_input):
     cols_texto = ['sexo', 'cidade', 'bairro', 'queixa', 'diagnostico', 'tipo', 'servico']
     for col in cols_texto:
         if col in df.columns:
+            # Garante que 'Não Informado' seja aplicado explicitamente para visualização
             df[col] = df[col].fillna('Não Informado').astype(str)
             df[col] = df[col].replace(['nan', 'NaN', 'None', ''], 'Não Informado')
 
@@ -161,7 +162,7 @@ def carregar_dados():
 # --- 2. COMPONENTES VISUAIS (Atualizado para UI/UX) ---
 
 def layout_kpis(df):
-    """Gera KPIs estilizados."""
+    """Gera KPIs estilizados, permitindo visualização de dados não informados."""
     total_pacientes = len(df)
     media_idade = df['idade'].mean() if not df.empty else 0
     
@@ -173,9 +174,8 @@ def layout_kpis(df):
 
     top_diag = "Inconclusivo"
     if not df.empty:
-        diag_validos = df[~df['diagnostico'].isin(['Não Informado', 'Não Definido'])]
-        if not diag_validos.empty:
-            top_diag = diag_validos['diagnostico'].mode()[0]
+        # Alteração: Permite que 'Não Informado' apareça como Top Diagnóstico se for a moda
+        top_diag = df['diagnostico'].mode()[0]
 
     # Layout de 4 colunas para KPIs
     k1, k2, k3, k4 = st.columns(4)
@@ -258,7 +258,9 @@ def nuvem_termos_otimizada(df):
 
     text = ' '.join(df['diagnostico'].astype(str) + ' ' + df['queixa'].astype(str))
     text = remover_acentos(text.lower())
-    stopwords = set(['nao informado', 'nao definido', 'nan', 'dor', 'paciente', 'de', 'do', 'da'])
+    
+    # Alteração: 'nao informado' e 'nao definido' removidos das stopwords para aparecerem na nuvem
+    stopwords = set(['nan', 'dor', 'paciente', 'de', 'do', 'da'])
 
     wordcloud = WordCloud(
         width=800, height=350,
@@ -348,4 +350,5 @@ def main():
     st.sidebar.info("Desenvolvido para análise epidemiológica.")
 
 if __name__ == "__main__":
-    main()
+    main()    main()
+
